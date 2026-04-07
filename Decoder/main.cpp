@@ -4,21 +4,70 @@
 
 int retrieveGFElement(int m, int exponent);
 void performGFAddition(int m, int a, int b);
-std::vector<int> computeSyndromes(int m, int t, const std::vector<int>& received);
-void computeLambda(int m, int t, const std::vector<int>& syndromes);
-struct GFEntry {
-    int exponent;
-    int value;
-};
-
 int retrieveGFExponent(int m, int value);
 int powerGFElement(int m, int value, int power);
 int multiplyGFElement(int m, int a, int b);
 int inverseGFElement(int m, int value);
 int divideGFElement(int m, int numerator, int denominator);
+std::vector<int> computeSyndromes(int m, int t, const std::vector<int>& received);
+std::vector<int> computeLambda(int m, int t, const std::vector<int>& syndromes);
+std::vector<int> findRoots(int m, const std::vector<int>& lambda, int codewordLength);
+std::vector<int> correctErrors(const std::vector<int>& received, const std::vector<int>& errorPositions);
+struct GFEntry {
+    int exponent;
+    int value;
+};
+
+
+
 
 int main () {
-  return 0;
+    int m = 32;
+    int t = 2;
+    std::vector<int> received = {
+        0, 0, 1, 0, 0, 0, 0, 1, 1, 0,
+        0, 1, 1, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+    };
+
+    std::vector<int> syndromes = computeSyndromes(m, t, received);
+    std::vector<int> lambda = computeLambda(m, t, syndromes);
+    std::vector<int> errorPositions = findRoots(m, lambda, static_cast<int>(received.size()));
+    std::vector<int> corrected = correctErrors(received, errorPositions);
+
+    std::cout << "Syndromes: ";
+    for (int i = 0; i < static_cast<int>(syndromes.size()); ++i) {
+        if (syndromes[i] == 0) {
+            std::cout << "S" << (i + 1) << "=0 ";
+        } else {
+            std::cout << "S" << (i + 1) << "=" << retrieveGFExponent(m, syndromes[i]) << " ";
+        }
+    }
+    std::cout << std::endl;
+
+    std::cout << "Lambda coefficients: ";
+    for (int i = 0; i < static_cast<int>(lambda.size()); ++i) {
+        if (lambda[i] == 0) {
+            std::cout << "0 ";
+        } else {
+            std::cout << retrieveGFExponent(m, lambda[i]) << " ";
+        }
+    }
+    std::cout << std::endl;
+
+    std::cout << "Error positions: ";
+    for (int pos : errorPositions) {
+        std::cout << pos << " ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "Corrected word: ";
+    for (int bit : corrected) {
+        std::cout << bit;
+    }
+    std::cout << std::endl;
+
+    return 0;
 }
 
 /***
@@ -140,7 +189,6 @@ int multiplyGFElement(int m, int a, int b) {
 }
 
 int inverseGFElement(int m, int value) {
-    if (value == 0) throw std::out_of_range("Cannot invert zero in GF");
     int fieldOrder = m - 1;
     int exponent = retrieveGFExponent(m, value);
     int inverseExponent = (fieldOrder - exponent) % fieldOrder;
@@ -149,6 +197,8 @@ int inverseGFElement(int m, int value) {
 
 int divideGFElement(int m, int numerator, int denominator) {
     if (numerator == 0) return 0;
+    if (denominator == 0) throw std::out_of_range("Cannot divide by zero in GF");
+
     return multiplyGFElement(m, numerator, inverseGFElement(m, denominator));
 }
 
@@ -193,7 +243,7 @@ std::vector<int> computeSyndromes(int m, int t, const std::vector<int>& received
  * This function computes the error locator polynomial (lambda)
  * using Peterson's technique for simpler cases
  */
-void computeLambda(int m, int t, const std::vector<int>& syndromes) {
+std::vector<int> computeLambda(int m, int t, const std::vector<int>& syndromes) {
     std::vector<int> lambda(t, 0);
     if (t == 1) lambda[0] = syndromes[0];
     else if (t == 2) {
@@ -209,5 +259,53 @@ void computeLambda(int m, int t, const std::vector<int>& syndromes) {
         int numerator = (multiplyGFElement(m, s1Squared, syndromes[2]) ^ syndromes[4]);
         int denuminator = s1Cubed ^ syndromes[2];
         lambda[1] = divideGFElement(m, numerator, denuminator);
+        lambda[2] = s1Cubed ^ syndromes[2] ^ multiplyGFElement(m, syndromes[0], lambda[1]);
     }
-} 
+    else if (t == 4) {
+      lambda[0] = syndromes[0];
+    }
+    return lambda;
+}
+
+/**
+ * This function finds roots of Lambda(x) using Chien search.
+ * Returned values are final error positions in the received codeword.
+ */
+std::vector<int> findRoots(int m, const std::vector<int>& lambda, int codewordLength) {
+    std::vector<int> errorPositions;
+    int fieldOrder = m - 1;
+    int degree = static_cast<int>(lambda.size());
+
+    for (int rootExponent = 0; rootExponent < fieldOrder; ++rootExponent) {
+        int x = retrieveGFElement(m, rootExponent);
+
+        // Monic form: x^degree + lambda[0]x^(degree-1) + ... + lambda[degree-1].
+        int lambdaValue = powerGFElement(m, x, degree);
+        for (int i = 0; i < degree; ++i) {
+            int coeff = lambda[degree - 1 - i];
+            if (coeff == 0) continue;
+            int xPower = powerGFElement(m, x, i);
+            int term = multiplyGFElement(m, coeff, xPower);
+            lambdaValue ^= term;
+        }
+
+        if (lambdaValue == 0) {
+            int location = rootExponent;
+            if (codewordLength > 0) location %= codewordLength;
+            errorPositions.push_back(location);
+        }
+    }
+    return errorPositions;
+}
+
+std::vector<int> correctErrors(const std::vector<int>& received, const std::vector<int>& errorPositions) {
+    std::vector<int> corrected = received;
+    int codewordLength = static_cast<int>(received.size());
+    if (codewordLength == 0) return corrected;
+
+    for (int errorPosition : errorPositions) {
+        errorPosition = ((errorPosition % codewordLength) + codewordLength) % codewordLength;
+        if (errorPosition >= 0 && errorPosition < codewordLength) corrected[errorPosition] ^= 1;
+    }
+    return corrected;
+}
