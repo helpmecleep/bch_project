@@ -241,7 +241,8 @@ std::vector<int> computeSyndromes(int m, int t, const std::vector<int>& received
 
 /**
  * This function computes the error locator polynomial (lambda)
- * using Peterson's technique for simpler cases
+ * using Peterson's technique for simpler cases 
+ * Only valid for t <= 4, for larger t or more complex cases Peterson's original algorithm is needed
  */
 std::vector<int> computeLambda(int m, int t, const std::vector<int>& syndromes) {
     std::vector<int> lambda(t, 0);
@@ -270,6 +271,8 @@ std::vector<int> computeLambda(int m, int t, const std::vector<int>& syndromes) 
 /**
  * This function finds roots of Lambda(x) using Chien search.
  * Returned values are final error positions in the received codeword.
+ * The roots are then inverted to get the error positions, 
+ * since the roots correspond to alpha^(-i) where i is the error position.
  */
 std::vector<int> findRoots(int m, const std::vector<int>& lambda, int codewordLength) {
     std::vector<int> errorPositions;
@@ -298,6 +301,10 @@ std::vector<int> findRoots(int m, const std::vector<int>& lambda, int codewordLe
     return errorPositions;
 }
 
+/**
+ * This function corrects the errors in the received code word
+ * the bits at the error positions are flipped.
+ */
 std::vector<int> correctErrors(const std::vector<int>& received, const std::vector<int>& errorPositions) {
     std::vector<int> corrected = received;
     int codewordLength = static_cast<int>(received.size());
