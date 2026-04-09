@@ -1,6 +1,9 @@
 #include <iostream>
 #include <vector>
 #include <stdexcept>
+#include <unordered_map>
+#include <cstdint>
+
 // Forward declarations of Galois Field operations
 int retrieveGFElement(int m, int exponent);
 void performGFAddition(int m, int a, int b);
@@ -13,9 +16,12 @@ int divideGFElement(int m, int numerator, int denominator);
 // Struct to represent Galois Field entries for different values of m
 struct GFEntry {
     int exponent;
-    int value;
+    uint32_t value;
 };
-
+struct MPEntry {
+    int exponent;
+    uint32_t coefficients;
+};
 /***
  * This function retrieves one Galois Field element for a given value of m where m = 2^k.
  * The exponent represents a power of alpha and the returned value is the polynomial bit pattern.
@@ -38,7 +44,7 @@ int retrieveGFElement(int m, int exponent) {
             {0,  0b1000}, {1,  0b0100}, {2,  0b0010}, {3,  0b0001},
             {4,  0b1100}, {5,  0b0110}, {6,  0b0011}, {7,  0b1101},
             {8,  0b1010}, {9,  0b0101}, {10, 0b1110}, {11, 0b0111},
-            {12, 0b1111}, {13, 0b1011}, {14, 0b0101}
+            {12, 0b1111}, {13, 0b1011}, {14, 0b1001}
         };
         gfTable = table16;
         gfTableSize = static_cast<int>(sizeof(table16) / sizeof(table16[0]));
@@ -171,7 +177,7 @@ int divideGFElement(int m, int numerator, int denominator) {
 std::vector<std::vector<int>> generateCosets (int n) {
     std::vector<std::vector<int>> cosets;
     std::vector<bool> used(n, false);
-    for (int i = 1; i < n; i++) {
+    for (int i = 0; i < n; i++) {
         if (used[i]) continue;
         std::vector<int> coset;
         int current = i;
@@ -184,3 +190,65 @@ std::vector<std::vector<int>> generateCosets (int n) {
     }
     return cosets;
 }
+
+
+int retrieveMinimalPolynomial(int m, int exponent) {
+    const MPEntry* mpTable = nullptr;
+    int mpTableSize = 0;
+    if (m == 8) {
+        static const MPEntry mpTable8[] = {
+            {1, 0b1101}, // (0,1,3) : 1+x+x^3
+            {3, 0b1011} // (0,2,3) : 1+x^2+x^3
+        };
+        mpTable = mpTable8;
+        mpTableSize = static_cast<int>(sizeof(mpTable8) / sizeof(mpTable8[0]));
+    }
+    else if (m == 16) {
+        static const MPEntry mpTable16[] = {
+            {1, 0b11001}, // (0,1,4) : 1+x+x^4
+            {3, 0b11111}, // (0,1,2,3,4) : 1+x+x^2+x^3+x^4
+            {5, 0b11100}, // (0,1,2): 1+x+x^2
+            {7, 0b10011} // (0,3,4): 1+x^3+x^4
+        }; 
+        mpTable = mpTable16;
+        mpTableSize = static_cast<int>(sizeof(mpTable16) / sizeof(mpTable16[0]));
+    }
+    else if (m == 32) {
+        static const MPEntry mpTable32[] = {
+            {1, 0b101001}, // (0,2,5): 1+x^2+x^5
+            {3, 0b101111}, // (0,2,3,4,5): 1+x^2+x^3+x^4+x^5    
+            {5, 0b111011}, // (0,1,2,4,5): 1+x+x^2+x^4+x^5
+            {7, 0b111101}, // (0,1,2,3,5): 1+x+x^3+x^4+x^5
+            {11, 0b110111}, // (0,1,3,4,5): 1+x+x^3+x^4+x^5
+            {15, 0b100101} // (0,3,5): 1+x^3+x^5
+        };
+        mpTable = mpTable32;
+        mpTableSize = static_cast<int>(sizeof(mpTable32) / sizeof(mpTable32[0]));
+    }
+    else if (m == 64) {
+        static const MPEntry mpTable64[] = {
+            {1,  0b1100001}, // (0,1,6): 1+x+x^6
+            {3,  0b1010101}, // (0,1,2,4,6): 1+x+x^2+x^4+x^6
+            {5,  0b1110011}, // (0,1,2,5,6): 1+x+x^2+x^5+x^6
+            {7,  0b1001001}, // (0,3,6): 1+x^3+x^6
+            {9,  0b0001101}, // (0,2,3): 1+x^2+x^3
+            {11, 0b1001111}, // (0,2,3,5,6): 1+x^2+x^3+x^5+x^6
+            {13, 0b1011011}, // (0,1,3,4,6): 1+x+x^3+x^4+x^6
+            {15, 0b1010111}, // (0,2,4,5,6): 1+x^2+x^4+x^5+x^6
+            {21, 0b0000111}, // (0,1,2): 1+x+x^2
+            {23, 0b1100111}, // (0,1,4,5,6): 1+x^4+x^5+x^6
+            {27, 0b1000011}, // (0,1,3): 1+x^3+x^6
+            {31, 0b1000001},  // (0,5,6): 1+x^5+x^6
+        };
+        mpTable = mpTable64;
+        mpTableSize = static_cast<int>(sizeof(mpTable64) / sizeof(mpTable64[0]));
+    }
+    else throw std::out_of_range("Invalid m for minimal polynomial lookup");
+    for (int i = 0; i < mpTableSize; ++i) {
+        if (mpTable[i].exponent == exponent) {
+            return mpTable[i].coefficients;
+        }
+    }
+    throw std::out_of_range("Invalid exponent for minimal polynomial lookup");
+} 
+    
