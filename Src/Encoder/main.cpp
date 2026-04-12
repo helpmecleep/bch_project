@@ -17,6 +17,8 @@ int main(){
 
     uint32_t g = generatorPolynomial(m, b, delta);
     int degree = polyDegree(g);
+    uint32_t message = 0b101; // Example 3-bit message
+    uint32_t codeword = generateCode(message, g);
 
     std::cout << "GF(" << m << "), t=" << t << ", b=" << b << ", delta=" << delta << '\n';
     std::cout << "g(x) bits: ";
@@ -30,6 +32,17 @@ int main(){
     }
     std::cout << '\n';
 
+    std::cout << "Message bits: ";
+    for (int i = 2; i >= 0; --i) {
+        std::cout << (((message >> i) & 1U) ? '1' : '0');
+    }
+    std::cout << '\n';
+
+    int cwDegree = polyDegree(codeword);
+    std::cout << "Codeword bits: ";
+    for (int i = cwDegree; i >= 0; --i) {
+        std::cout << (((codeword >> i) & 1U) ? '1' : '0');
+    }
     return 0;
 }
 

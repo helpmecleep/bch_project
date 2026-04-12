@@ -1,12 +1,13 @@
 #include <iostream>
 #include <vector>
 #include <stdexcept>
-#include "gfOps.h"
+#include "../../Inc/gfOps.h"
+#include "../../Inc/polyOps.h"  
 
 // Forward declarations of functions
 std::vector<int> computeSyndromes(int m, int t, const std::vector<int>& received);
 std::vector<int> computeLambda(int m, int t, const std::vector<int>& syndromes);
-std::vector<int> findRoots(int m, const std::vector<int>& lambda, int codewordLength);
+std::vector<int> findRoots(int m, const std::vector<int>& lambda);
 std::vector<int> correctErrors(const std::vector<int>& received, const std::vector<int>& errorPositions);
 
 int main () {
@@ -15,12 +16,13 @@ int main () {
     std::vector<int> received = {
         0, 0, 1, 0, 0, 0, 0, 1, 1, 0,
         0, 1, 1, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0    
     };
-
+    // received = 001000011001100000000000000000
+    // fixed =    001001011011100000000000000000
     std::vector<int> syndromes = computeSyndromes(m, t, received);
     std::vector<int> lambda = computeLambda(m, t, syndromes);
-    std::vector<int> errorPositions = findRoots(m, lambda, static_cast<int>(received.size()));
+    std::vector<int> errorPositions = findRoots(m, lambda);
     std::vector<int> corrected = correctErrors(received, errorPositions);
 
     std::cout << "Syndromes: ";
@@ -126,7 +128,7 @@ std::vector<int> computeLambda(int m, int t, const std::vector<int>& syndromes) 
  * The roots are then inverted to get the error positions, 
  * since the roots correspond to alpha^(-i) where i is the error position.
  */
-std::vector<int> findRoots(int m, const std::vector<int>& lambda, int codewordLength) {
+std::vector<int> findRoots(int m, const std::vector<int>& lambda) {
     std::vector<int> errorPositions;
     int fieldOrder = m - 1;
     int degree = static_cast<int>(lambda.size());
@@ -134,37 +136,30 @@ std::vector<int> findRoots(int m, const std::vector<int>& lambda, int codewordLe
     for (int rootExponent = 0; rootExponent < fieldOrder; ++rootExponent) {
         int x = retrieveGFElement(m, rootExponent);
 
-        // Monic form: x^degree + lambda[0]x^(degree-1) + ... + lambda[degree-1].
-        int lambdaValue = powerGFElement(m, x, degree);
+        // Lambda(x) = 1 + L1*x + L2*x^2 + ...
+        int lambdaValue = retrieveGFElement(m, 0); // 1
         for (int i = 0; i < degree; ++i) {
-            int coeff = lambda[degree - 1 - i];
-            if (coeff == 0) continue;
-            int xPower = powerGFElement(m, x, i);
-            int term = multiplyGFElement(m, coeff, xPower);
-            lambdaValue ^= term;
+            if (lambda[i] == 0) continue;
+            int xPower = powerGFElement(m, x, i + 1);
+            lambdaValue ^= multiplyGFElement(m, lambda[i], xPower);
         }
 
         if (lambdaValue == 0) {
-            int location = rootExponent;
-            if (codewordLength > 0) location %= codewordLength;
+            int location = (fieldOrder - rootExponent) % fieldOrder;
             errorPositions.push_back(location);
         }
     }
     return errorPositions;
 }
-
 /**
  * This function corrects the errors in the received code word
  * the bits at the error positions are flipped.
  */
 std::vector<int> correctErrors(const std::vector<int>& received, const std::vector<int>& errorPositions) {
     std::vector<int> corrected = received;
-    int codewordLength = static_cast<int>(received.size());
-    if (codewordLength == 0) return corrected;
-
-    for (int errorPosition : errorPositions) {
-        errorPosition = ((errorPosition % codewordLength) + codewordLength) % codewordLength;
-        if (errorPosition >= 0 && errorPosition < codewordLength) corrected[errorPosition] ^= 1;
+    for (int pos : errorPositions) {
+        if (pos >= 0 && pos < static_cast<int>(corrected.size()))
+            corrected[pos] ^= 1;
     }
     return corrected;
 }
