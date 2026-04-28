@@ -21,7 +21,6 @@ uint32_t multiplyPolyElement(uint32_t multiplicand, uint32_t multiplier) {
 }
 
 int polyDegree(uint32_t p) {
-    if (p == 0U) return -1; // Degree of zero polynomial is undefined, return -1 as a convention
     int degree = 0;
     while (p >>= 1U) {
         degree++;

@@ -12,11 +12,11 @@ std::vector<int> correctErrors(const std::vector<int>& received, const std::vect
 
 int main () {
     int m = 32;
-    int t = 2;
+    int t = 3;
     std::vector<int> received = {
-        0, 0, 1, 0, 0, 0, 0, 1, 1, 0,
-        0, 1, 1, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0    
+        0, 0, 1, 0, 0, 0, 0, 1, 0, 0,
+        0, 0, 0, 0, 0, 1, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
     };
     // received = 001000011001100000000000000000
     // fixed =    001001011011100000000000000000
@@ -118,6 +118,15 @@ std::vector<int> computeLambda(int m, int t, const std::vector<int>& syndromes) 
     }
     else if (t == 4) {
       lambda[0] = syndromes[0];
+      int l2Numerator1 = multiplyGFElement(m, syndromes[0], (syndromes[6] ^ powerGFElement(m, syndromes[0], 7)));
+      int l2Numerator2 = multiplyGFElement(m, syndromes[2], (syndromes[4] ^ powerGFElement(m, syndromes[0], 5)));
+      int l2Denominator1 = multiplyGFElement(m, syndromes[2], (syndromes[2] ^ powerGFElement(m, syndromes[0], 3)));
+      int l2Denominator2 = multiplyGFElement(m, syndromes[0], (syndromes[4] ^ powerGFElement(m, syndromes[0], 5)));
+      lambda[1] = divideGFElement(m, l2Numerator1 ^ l2Numerator2, l2Denominator1 ^ l2Denominator2);
+      lambda[2] = (powerGFElement(m, syndromes[0], 3) ^ syndromes[2]) ^ multiplyGFElement(m, syndromes[0], lambda[1]);
+      int l3Numerator1 = multiplyGFElement(m, powerGFElement(m, syndromes[0], 2), syndromes[2]) ^ syndromes[4];
+      int l3Numerator2 = multiplyGFElement(m, lambda[1], (syndromes[2] ^ powerGFElement(m, syndromes[0], 3)));
+      lambda[3] = divideGFElement(m, l3Numerator1 ^ l3Numerator2, syndromes[0]);
     }
     return lambda;
 }

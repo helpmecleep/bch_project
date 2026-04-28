@@ -10,8 +10,8 @@ uint32_t generatorPolynomial(int m, int b, int delta);
 uint32_t generateCode(uint32_t message, uint32_t generator);
 
 int main(){ 
-    const int m = 8;
-    const int t = 1;
+    const int m = 16;
+    const int t = 3;
     const int b = 0;
     const int delta = 2 * t;
 
@@ -43,6 +43,7 @@ int main(){
     for (int i = cwDegree; i >= 0; --i) {
         std::cout << (((codeword >> i) & 1U) ? '1' : '0');
     }
+    std::cout << std::endl;
     return 0;
 }
 
